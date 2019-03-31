@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="initial-scale=1, maximum-scale=1, user-scalable=no, width=device-width">
+        <title>Buddhiyoga Testing</title>
+        <script src="lib/jquery-1.10.js"></script>
+        <script src="lib/phaser.min.js"></script>
+        <script src="lib/hammer.min.js"></script>
+
+        <style type="text/css">
+            .game {
+                height: auto;
+                max-width: 530px;
+                margin-left: 25%;
+            }
+            .dropdown {
+                margin-bottom: 5px;
+                text-align: right;
+            }
+
+        </style>
+    </head>
+
+    <body>
+        <div class="game">
+            <div id="game" style="border:none; overflow:none;"></div>
+        </div>
+    </body>
+
+    <script type="text/javascript">
+      var game = new Phaser.Game(800, 920, Phaser.CANVAS, 'game');
+      var player = {
+        image: null,
+        position: 0,
+        targetPosition: 68,
+        position: 68,
+        movementTween: null
+      };
+      var dice, result, board, playerSprite, initHeight, positions, diceSound, ladderSound, snakeSound;
+      var plots = [];
+      var scrollStep = 0.05;
+      var sixRepeat = 0; // Make 0 on reset the game
+      var retreatPos = 0; // Make 0 on reset the game
+      var diceRolled = 0; // Make 0 on reset the game
+      var isShownToast = 0; // Make 0 on reset the game
+
+      // localStorage.clear();
+      var arr = {};
+      var statResultRolled = 0;
+
+      var statDiceRoll = [];
+      var statResult = [];
+      var statPosition = [];
+      var gotSnakeOrLadder = false;
+
+      // var toastShownFor = [67, 69, 70, 71];
+      var endToastShown = false;
+      var isToastDisplay = false;
+      var toastMSG;
+
+      var testPostion = 0;
+      var testTargetPostion = 0;
+
+
+      var boot = {
+
+        preload: function() {
+          game.load.image("board", "game/board.jpg");
+          game.load.image("player", "game/token4.png");
+          game.load.spritesheet("dice", "game/dice.png", 100, 100, 7);
+          // game.load.audio('diceSound', 'lib/dice.mp3');
+          // game.load.audio('ladderSound', 'lib/ascend.mp3');
+          // game.load.audio('snakeSound', 'lib/descend.mp3');
+          Phaser.Canvas.setSmoothingEnabled(game.context, false);
+          game.scale.maxWidth = 800;
+          game.scale.maxHeight = 920;
+          game.scale.scaleMode = Phaser.ScaleManager.SHOW_ALL;
+          game.scale.pageAlignHorizontally = true;
+          game.scale.pageAlignVertically = true;
+          game.scale.setShowAll();
+          game.scale.refresh();
+
+        },
+
+        create: function() {
+          game.physics.startSystem(Phaser.Physics.ARCADE);
+          game.stage.backgroundColor = "#FFFFFF";
+          // game.stage.backgroundColor = "#FFC177";
+          game.state.start("main");
+        }
+      }
+
+      var mainState = {
+
+        preload: function() {
+          game.load.json('gameconfig', 'lib/gameconfig.json');
+        },
+
+        create: function() {
+          // game.stage.backgroundColor = "#FAC670";
+          positions = game.cache.getJSON('gameconfig');
+          board = game.add.sprite(0, 0, "board");
+          playerSprite = game.add.sprite(0, 0, "player");
+          board.addChild(playerSprite);
+
+          board.inputEnabled = true;
+          board.input.enableDrag(false);
+          board.events.onDragUpdate.add(this.dragUpdate, this);
+          board.enableBody = true;
+          player.image = playerSprite;
+          player.image.x = positions[68].x;
+          player.image.y = positions[68].y;
+          player.position = testPostion;
+          player.targetPosition = testTargetPostion;
+          player.image.anchor.x = 0.1;
+          player.image.anchor.y = 0.1;
+          player.image.pivot.x = 0.5;
+          player.image.pivot.y = 0.5;
+          dice = game.add.button(350, 810, "dice", this.rollDice, this);
+          dice.frame = 6;
+          initHeight = board.height;
+        },
+
+        rollDice: function() {
+          // diceSound.play();
+          diceRolled++;
+          board.scale.set(1);
+          board.position.set(0);
+          if (dice.frame == 6) {
+            result = game.rnd.integerInRange(1, 6);
+            // result = 6;
+            dice.frame = result - 1;
+            this.initiatePawnMovement();
+          }
+        },
+
+        initiatePawnMovement: function() {
+
+          statResultRolled = result;
+          if(player.position == 0 && result != 6 && isShownToast == 0){
+            // this.showToast("You have to throw a 6 to move out of Vaikuntha");
+            isShownToast = 1;
+          }
+
+          if (player.position == 68) {
+            if (result != 6) {
+              // this.showToast("You have to throw a 6 to move out of Vaikuntha");
+              isShownToast = 1;
+            }
+            player.position = 0;
+            player.targetPosition = 0;
+            sixRepeat = 0;
+            retreatPos = 0;
+          }
+
+
+          if ((positions[player.position].endingToast) && endToastShown == false) {
+            if((player.position == 67 && result > 5)||(player.position == 69 && result > 3)||(player.position == 70 && result > 2)||(player.position == 71 && result > 1)){
+              // this.showToast(positions[player.position].endingToast,"",false);
+              endToastShown = true;
+            }
+          }
+
+          // Game Statistics Collection
+          if (player.position == 0 && result != 6) {
+            statDiceRoll.push(diceRolled);
+            statResult.push(statResultRolled);
+            statPosition.push(68);
+          }
+          // Game Statistics Collection
+          dice.frame = result - 1; // Setting the device frame to the same value of result
+          player.targetPosition += result;
+
+           // Setting the player position to the same value of result
+
+          if (result == 6) {
+            sixRepeat++;
+            switch (sixRepeat) {
+              case 1:
+                if (player.position != 0) {
+                  retreatPos = player.position;
+                } else {
+                  retreatPos = 1;
+                }
+                break;
+              case 3:
+                if (player.position != 68) {
+                  // snakeSound.play();
+                  player.targetPosition = retreatPos;
+                  sixRepeat = 0;
+                }
+                if (retreatPos == 1) {
+                  isToastDisplay = true;
+                  toastMSG = "Starting from Vaikuntha, 3 consecutive 6 lands you on Janma as an Avatar!";
+                } else {
+                  isToastDisplay = true;
+                  toastMSG = "After 3 consecutive 6 have been thrown. Now you have landed to the starting cell";
+                }
+                break;
+            }
+          } else {
+            sixRepeat = 0;
+            retreatPos = 0;
+          }
+        },
+
+        showToast: function(message, title, showPause) {
+          var showTitle = (title) ? title : "";
+          if (showPause == false) {
+
+            $notify.customAlert(showTitle, message, "OK").then(function() {
+              isToastDisplay = false;
+              gotSnakeOrLadder = false;
+              // dice.frame = 6;
+            });
+          } else {
+            game.time.events.add(400,function(){
+              $notify.customAlert(showTitle, message, "OK").then(function() {
+                isToastDisplay = false;
+                gotSnakeOrLadder = false;
+                // dice.frame = 6;
+              });
+            });
+          }
+        },
+
+        update: function() {
+          if (player.targetPosition != player.position && (player.movementTween == null || !player.movementTween.isRunning)) {
+            if (player.targetPosition > player.position) {
+              if (player.targetPosition < positions.length) {
+                if (player.position != 0) {
+                  if (retreatPos != 0 && sixRepeat == 0) {
+                    player.position = retreatPos;
+                    this.movePlayer();
+                  } else {
+                    player.position++;
+                    this.movePlayer();
+                  }
+                } else if (player.position == 0 && result == 6) {
+                  player.position = result;
+                  player.targetPosition = result;
+                  this.movePlayer();
+                } else {
+                  game.time.events.add(500, function() {
+                    player.targetPosition = player.position;
+                    dice.frame = 6;
+                  });
+                }
+              } else {
+                game.time.events.add(500, function() {
+                  player.targetPosition = player.position;
+                  dice.frame = 6;
+                });
+              }
+            } else {
+              if (player.targetPosition < positions.length) {
+                player.position = player.targetPosition;
+                this.movePlayer();
+              } else {
+                game.time.events.add(500, function() {
+                  player.targetPosition = player.position;
+                  dice.frame = 6;
+                });
+              }
+            }
+          }
+
+
+          if (player.targetPosition == player.position && dice.frame != 6 && !player.movementTween.isRunning) {
+            endToastShown = false;
+            if (!this.climbLadder()) {
+              dice.frame = 6;
+            }
+          }
+        },
+
+        scaleToZoom : function(){
+          Phaser.Canvas.setSmoothingEnabled(game.context, false);
+          board.scale.set(2);
+          game.scale.scaleMode = Phaser.ScaleManager.SHOW_ALL;
+          game.scale.setShowAll();
+          game.scale.refresh();
+          board.position.x = positions[player.position].zoomX;
+          board.position.y = positions[player.position].zoomY;
+        },
+
+        shutdown: function() {
+          game.cache.removeImage("board");
+          game.cache.removeImage("player");
+          game.cache.removeImage("dice");
+        },
+
+        movePlayer: function() {
+          if (player.movementTween != null) {
+            player.movementTween.stop(); //remove the last tween from the manager, will be garbage collected
+          }
+          player.movementTween = game.add.tween(player.image).to({
+            x: positions[player.position].x,
+            y: positions[player.position].y
+          }, 600, Phaser.Easing.Linear.None, true);
+
+          game.add.tween(player.image.anchor).to({
+            y: 0.5
+          }, 200, Phaser.Easing.Linear.None, true, 0, 0, true);
+        },
+
+        climbLadder: function() {
+          statDiceRoll.push(diceRolled);
+          statResult.push(statResultRolled);
+          statPosition.push(player.position);
+          if (positions[player.position].snakeLadder != 0) {
+            if(positions[player.position].snakeLadder > player.position){
+              // ladderSound.play();
+            } else {
+              // snakeSound.play();
+            }
+            player.targetPosition = positions[player.position].snakeLadder;
+            player.position = positions[player.position].snakeLadder;
+            statResultRolled = 0;
+            gotSnakeOrLadder = true;
+            this.movePlayer();
+            return true;
+          }
+          return false;
+        },
+
+        dragUpdate: function() {
+          var fixBottomHeight = board.height - initHeight;
+
+          if (board.position.x > 0) {
+            board.position.x = 0;
+          }
+
+          if (board.position.y > 0) {
+            board.position.y = 0;
+          }
+          if (game.world.right < game.world.width) {
+            var diff = game.world.width - game.world.right;
+            board.position.x = board.position.x + diff;
+          }
+
+          if (board.position.y < fixBottomHeight - (fixBottomHeight * 2)) {
+            board.position.y = fixBottomHeight - (fixBottomHeight * 2);
+          }
+        },
+
+      }
+
+      game.state.add('boot', boot);
+      game.state.add('main', mainState);
+      game.state.start('boot');
+    </script>
+
+</html>
